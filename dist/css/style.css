@@ -81,6 +81,10 @@ header a:hover {
     user-select: none;
 }
 
+.menu-setting {
+    margin-left: 12px;
+}
+
 header input[type="checkbox"] {
     vertical-align: middle;
     margin-right: 4px;
@@ -180,6 +184,15 @@ footer {
 .editor-pane,
 .preview-pane {
   height: 100%;
+}
+
+.split-container.preview-only .editor-pane,
+.split-container.preview-only .split-divider {
+  display: none;
+}
+
+.split-container.preview-only .preview-pane {
+  width: 100% !important;
 }
 
 .split-divider {

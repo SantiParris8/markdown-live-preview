@@ -11,6 +11,7 @@ const init = () => {
     const localStorageNamespace = 'com.markdownlivepreview';
     const localStorageKey = 'last_state';
     const localStorageScrollBarKey = 'scroll_bar_settings';
+    const localStorageHideEditorKey = 'hide_editor_settings';
     const localStorageThemeKey = 'theme_settings';
     const confirmationMessage = 'Are you sure you want to reset? Your changes will be lost.';
     let mermaidRenderTimer = null;
@@ -55,7 +56,7 @@ _You **can** combine them_
 
 ## Images
 
-![This is an alt text.](/image/Markdown-mark.svg "This is a sample image.")
+![This is an alt text.](image/Markdown-mark.svg "This is a sample image.")
 
 ## Links
 
@@ -295,6 +296,36 @@ This web site is using ${"`"}markedjs/marked${"`"}.
             let checked = event.currentTarget.checked;
             scrollBarSync = checked;
             saveScrollBarSettings(checked);
+        });
+    };
+
+    // ----- editor visibility -----
+
+    let initEditorVisibilityToggle = (settings, editor) => {
+        const checkbox = document.querySelector('#hide-editor-checkbox');
+        const container = document.querySelector('#container');
+        const editorPane = document.querySelector('#edit');
+
+        if (!checkbox || !container || !editorPane) {
+            return;
+        }
+
+        const setEditorHidden = (hidden) => {
+            checkbox.checked = hidden;
+            container.classList.toggle('preview-only', hidden);
+            editorPane.setAttribute('aria-hidden', String(hidden));
+
+            if (!hidden) {
+                requestAnimationFrame(() => editor.layout());
+            }
+        };
+
+        setEditorHidden(settings);
+
+        checkbox.addEventListener('change', (event) => {
+            const hidden = event.currentTarget.checked;
+            setEditorHidden(hidden);
+            saveHideEditorSettings(hidden);
         });
     };
 
@@ -548,6 +579,10 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         return last;
     };
 
+    let loadHideEditorSettings = () => {
+        return Storehouse.getItem(localStorageNamespace, localStorageHideEditorKey);
+    };
+
     let saveScrollBarSettings = (settings) => {
         let expiredAt = new Date(2099, 1, 1);
         Storehouse.setItem(localStorageNamespace, localStorageScrollBarKey, settings, expiredAt);
@@ -561,6 +596,11 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         } catch (e) {
             // ignore storage errors
         }
+    };
+
+    let saveHideEditorSettings = (settings) => {
+        let expiredAt = new Date(2099, 1, 1);
+        Storehouse.setItem(localStorageNamespace, localStorageHideEditorKey, settings, expiredAt);
     };
 
     let setupDivider = () => {
@@ -653,6 +693,10 @@ This web site is using ${"`"}markedjs/marked${"`"}.
 
     let scrollBarSettings = loadScrollBarSettings() || false;
     initScrollBarSync(scrollBarSettings);
+
+    let hideEditorSettings = loadHideEditorSettings();
+    hideEditorSettings = hideEditorSettings === 'true' || hideEditorSettings === true;
+    initEditorVisibilityToggle(hideEditorSettings, editor);
 
     // initialize theme (dark/light)
     let themeSettings = loadThemeSettings();
