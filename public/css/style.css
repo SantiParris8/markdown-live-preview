@@ -69,7 +69,8 @@ header a:hover {
     margin-left: 16px;
 }
 
-#export-button {
+#export-button,
+#selectable-export-button {
     margin-left: 16px;
 }
 

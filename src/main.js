@@ -3,6 +3,7 @@ import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/+esm'
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import mermaid from 'mermaid';
+import { preparePreviewForPrint } from './print-export.js';
 
 const init = () => {
     let hasEdited = false;
@@ -552,6 +553,34 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         });
     };
 
+    let printExportInProgress = false;
+
+    let exportSelectablePdf = async () => {
+        if (printExportInProgress) return;
+        const previewElement = document.querySelector('#preview-wrapper');
+        if (!previewElement) return;
+
+        const button = document.querySelector('#selectable-export-button a');
+        const restoreDarkMermaid = getMermaidTheme() === 'dark';
+        printExportInProgress = true;
+        button?.setAttribute('aria-busy', 'true');
+        let frame;
+        try {
+            await renderMermaidDiagrams('default');
+            frame = await preparePreviewForPrint(previewElement, await getLightMarkdownCss());
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        } catch (error) {
+            frame?.remove();
+            console.error('Failed to prepare selectable PDF', error);
+            window.alert('Could not prepare the PDF. Please try again.');
+        } finally {
+            printExportInProgress = false;
+            button?.removeAttribute('aria-busy');
+            if (restoreDarkMermaid) renderMermaidDiagrams();
+        }
+    };
+
     // ----- setup -----
 
     // setup navigation actions
@@ -583,6 +612,10 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         exportButton.addEventListener('click', (event) => {
             event.preventDefault();
             exportPreviewToPdf();
+        });
+        document.querySelector('#selectable-export-button')?.addEventListener('click', (event) => {
+            event.preventDefault();
+            exportSelectablePdf();
         });
     };
 
