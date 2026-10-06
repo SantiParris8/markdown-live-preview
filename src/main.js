@@ -449,15 +449,21 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         }
 
         const restoreDarkMermaid = getMermaidTheme() === 'dark';
+        // Keep exports at a desktop preview width, independent of the editor split.
+        const exportWidthPx = 1440;
+        const exportWidthMm = exportWidthPx * 25.4 / 96;
+        const exportMarginMm = 10;
 
         renderMermaidDiagrams('default').then(() => getLightMarkdownCss()).then((lightCss) => {
             const options = {
-                margin: 10,
+                margin: exportMarginMm,
                 filename: 'markdown-preview.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
+                pagebreak: { mode: [] },
                 html2canvas: {
                     scale: 2,
                     useCORS: true,
+                    windowWidth: exportWidthPx,
                     onclone: (clonedDoc) => {
                         clonedDoc.documentElement.setAttribute('data-theme', 'light');
 
@@ -477,30 +483,58 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                             clonedDoc.head.appendChild(style);
                         }
 
-                        const clonedPreview = clonedDoc.getElementById('preview-wrapper');
+                        const clonedPreview = clonedDoc.querySelector('.html2pdf__container #preview-wrapper');
                         if (clonedPreview) {
                             clonedPreview.style.background = '#fff';
                             clonedPreview.style.color = '#24292f';
-                            clonedPreview.style.width = '190mm';
-                            clonedPreview.style.maxWidth = '190mm';
+                            clonedPreview.style.boxSizing = 'border-box';
+                            clonedPreview.style.width = `${exportWidthMm}mm`;
+                            clonedPreview.style.maxWidth = 'none';
                         }
 
-                        const clonedOutput = clonedDoc.getElementById('output');
+                        const clonedOutput = clonedPreview?.querySelector('#output');
                         if (clonedOutput) {
                             clonedOutput.style.background = '#fff';
                             clonedOutput.style.color = '#24292f';
-                            clonedOutput.style.width = '190mm';
-                            clonedOutput.style.maxWidth = '190mm';
+                            clonedOutput.style.width = '100%';
+                            clonedOutput.style.maxWidth = 'none';
                         }
                     }
                 },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                jsPDF: {
+                    unit: 'mm',
+                    format: [exportWidthMm + 2 * exportMarginMm, 297],
+                    orientation: 'landscape'
+                }
             };
 
-            window.html2pdf()
+            const exportWorker = window.html2pdf()
                 .set(options)
                 .from(previewElement)
-                .save()
+                .toContainer()
+                .get('container', (container) => {
+                    // Reduce raster resolution for long documents to stay within canvas limits.
+                    options.html2canvas.scale = Math.min(2, 16384 / Math.max(container.scrollWidth, container.scrollHeight));
+                })
+                .toCanvas();
+
+            exportWorker.get('canvas').thenExternal((canvas) => {
+                // Allow one extra canvas pixel to avoid rounding into a second page.
+                const contentHeightMm = (canvas.height + 1) * exportWidthMm / canvas.width;
+                // jsPDF caps each page dimension at 14,400 points (5,080 mm).
+                // Fit unusually long documents proportionally onto that single page.
+                const maxPageHeightMm = 5080;
+                const fitScale = Math.min(1, (maxPageHeightMm - 2 * exportMarginMm) / contentHeightMm);
+                const pageWidthMm = exportWidthMm * fitScale + 2 * exportMarginMm;
+                const pageHeightMm = contentHeightMm * fitScale + 2 * exportMarginMm;
+                return exportWorker.set({
+                    jsPDF: {
+                        unit: 'mm',
+                        format: [pageWidthMm, pageHeightMm],
+                        orientation: pageWidthMm > pageHeightMm ? 'landscape' : 'portrait'
+                    }
+                }).save();
+                })
                 .catch((error) => {
                     // eslint-disable-next-line no-console
                     console.error('Failed to export PDF', error);
