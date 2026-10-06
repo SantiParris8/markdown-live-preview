@@ -513,6 +513,11 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                 .from(previewElement)
                 .toContainer()
                 .get('container', (container) => {
+                    // html2pdf centers this container in the live viewport. Anchor it
+                    // before capture so its position also matches the export viewport.
+                    container.style.left = '0';
+                    container.style.right = 'auto';
+                    container.style.margin = '0';
                     // Reduce raster resolution for long documents to stay within canvas limits.
                     options.html2canvas.scale = Math.min(2, 16384 / Math.max(container.scrollWidth, container.scrollHeight));
                 })
@@ -534,7 +539,7 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                         orientation: pageWidthMm > pageHeightMm ? 'landscape' : 'portrait'
                     }
                 }).save();
-                })
+            })
                 .catch((error) => {
                     // eslint-disable-next-line no-console
                     console.error('Failed to export PDF', error);
